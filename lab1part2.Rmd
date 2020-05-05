@@ -1,0 +1,464 @@
+---
+title: "STAT 431 - Lab 1: Part 2: Data Analysis"
+author: "T Baskaran"
+date: "5/5/2020"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Objectives:
+
+#### Warm-ups 
+
+1. To find the movie(s) that won the most unique **"Big 5 awards"**, from the given data
+
+2. To find the **most common first name** among all the actresses who had won the Best Actress award
+
+3. To find the **US State, or the non-US country** that has produced the most Oscar winners (for the awards in this dataset)
+
+#### Age and Gender
+
+4. To create a **linear model** that explores how the typical age of acting award winners has changed over time, and to explain the differences of that effect for the two genders of awards.
+
+#### Bootstrapping
+
+5. To construct an approximate **95% confidence interval** for percent of **"Big 5 Award"** award winners who are not white using **bootstrap** approach and to make a plot illustrating the findings.
+
+### The Data:
+
+For the Part 2 of the Lab1 session, we use the dataset **`Oscars-demographics-DFE.csv`** available at **Cal-Poly-Advanced-R/Lab_1**. We will be treating the phrase **"Big 5 Awards"** as referring to the five individual Academy Awards covered in this dataset namely: **Best Director, Best Actor, Best Actress, Best Supporting Actor, and Best Supporting Actress**.
+
+### The Preliminaries
+
+```{r, libraries, warning=FALSE, message=FALSE}
+# Load the required libraries
+library(tidyverse)
+library(boot)
+library(lubridate)
+# read the data
+mydata <- read_csv("https://raw.githubusercontent.com/Cal-Poly-Advanced-R/Lab_1/master/Oscars-demographics-DFE.csv")
+
+# Seeing the structure of the data
+str(mydata)
+
+# To keep only the required variables
+oscar <- mydata %>% 
+  select(movie, award, person, birthplace, date_of_birth, year_of_award, race_ethnicity)
+
+# Renaming some of the uncomfortable column names
+# oscar <- mydata %>% 
+#   rename(unit_id = "_unit_id", 
+#          golden = "_golden", 
+#          unit_state = `_unit_state`, 
+#          trusted_judjements = `_trusted_judgments`, 
+#          last_judgment_at = "_last_judgment_at")
+```
+
+
+### The Analysis:
+
+#### Warm-ups 
+
+**Objective 1:** To find the movie(s) that won the most unique "Big 5" awards
+
+```{r best movie}
+movie_count <- oscar %>%
+  group_by(movie) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+movie_count[1, 1]
+head(movie_count)
+
+
+```
+
+The output of the above shows that the most unique **'Big 5 awards'**  has gone to the film **`r movie_count[1, 1]`** taking as many as `r movie_count[1,2]` awards.
+
+**Objective 2:** To find the most common first name among all the actresses who had won the Best Actress award
+
+```{r best_actress_first_name, warning=FALSE, message=FALSE}
+best_actress_first_name <- oscar %>% 
+  filter(award == "Best Actress") %>% 
+  separate(col = person, 
+           into = c("f_name",
+                    "o_name"), 
+           sep = " ") %>%
+  group_by(f_name) %>%  
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+head(best_actress_first_name)
+```
+
+The output of the above shows that the most common first names among the Best Actresses are: **`r best_actress_first_name[1,1]`**  and **`r best_actress_first_name[2,1]`**. 
+
+**Objective 3:** To find the US State, or the non-US country that has produced the most Oscar winners (for the awards in this dataset)
+
+```{r most oscar state1, warning=FALSE, message=FALSE}
+# Separate the variable "birthplace" into four variables bp1, bp2, bp3 and bp4
+state <- oscar %>% 
+  separate(col = birthplace, 
+           into = c("bp1","bp2", "bp3", "bp4"), 
+           sep = ",") 
+
+# Create a new variable "state" and store the value of the country or state's names in this new variable
+state <- state %>%
+  mutate(  state =
+    case_when(
+      (bp4 != "") ~ bp4,
+      (bp3 != "") ~ bp3,
+      (bp2 != "") ~ bp2,
+      (bp1 != "") ~ bp1))
+
+# To confirm the class of state column
+class(state$state)
+
+# To look at the different states
+levels(as.factor(state$state))
+```
+
+There are 68 levels of state. A closer look at the levels reveals that, there are three levels for New Yark namely "New York City", " New York City" and " Ny". So let us change all to " Ny" and group the the state tibble according to state variable, count the number of times the 'state' has occurred and arrange it in descending order.
+
+```{r most oscar state2}
+# Set all New York states uniformly to " Ny"
+state$state[state$state %in% c("New York City", 
+                               " New York City", 
+                               " Ny")] <- " Ny"
+
+# Group the state tibble according to state variable, count the number of times the 'state' has occurred and arrange it in descending order.
+most_oscar_state <- state %>% 
+  group_by(state) %>% 
+  summarize (count = n()) %>% 
+  arrange(desc(count))
+
+head(most_oscar_state)
+
+```
+
+The output of the above shows that **New York State** of the US has produced the most Oscar winners.
+
+#### Age and Gender
+
+**Objective 4:** To create a linear model that explores how the typical age of **Acting award winners** has changed over time, and to explain the differences of that effect for the two genders of awards.
+
+The approach followed here is that we subset the **award** variable for **Acting awards** given to women and men (Best Actress, Best Supporting Actress, Best Actor, Best Supporting Actor). We then separate the **date_of_birth** variable into four parts and bring out the year part of the **date_of_birth** in four digits. We now assume that the award is given on Feb 1 of every year. Taking the award date and the date of birth, we calculate the age. We also make provision for **gender** variable.
+
+```{r acting award1, message= FALSE}
+
+# To know the categories available in award variable
+levels(as.factor(oscar$award))
+
+# Subsetting the acting awards given to women and men (Best Actress, Best Supporting Actress, Best Actor, Best Supporting Actor)
+acting_award <- oscar %>% 
+  filter(award %in% c("Best Actor", 
+                      "Best Actress", 
+                      "Best Supporting Actor", 
+                      "Best Supporting Actress"))%>%
+  separate(date_of_birth, 
+           into = c("dob_day", "dob_month",
+                    "dob_year"), 
+           sep = "-", 
+           remove = FALSE) %>% 
+  mutate(dob_year4 = 
+           if_else(str_length(dob_year) == 2,
+                   as.numeric(dob_year) + 1900,
+                   as.numeric(dob_year))) %>% 
+  mutate(dob_date = ymd(paste(dob_year4, "-", 
+                              dob_month, "-", 
+                              dob_day, sep = "")))%>% 
+  mutate(award_date = mdy(paste("Feb 1,",
+                                year_of_award)))%>% 
+  mutate(age = as.character(as.period(interval(dob_date, award_date)))) %>%
+  mutate(age_year = str_sub(age, 1,2)) %>% 
+  mutate(gender = if_else(award %in% c("Best Actor", 
+                                       "Best Supporting Actor"), 
+                          "Male", "Female"))
+```
+
+Let us now display how the number of awards is influenced by the age of the recipient.
+
+```{r age of awardees1}
+# To check the class of the different variables in the df acting_award
+class(acting_award$date_of_birth)
+
+class(acting_award$dob_date)
+
+# To check the levels of the different variables in the df acting_award
+levels(as.factor(acting_award$age_year))
+
+levels(as.factor(acting_award$gender))
+
+# To display the distribution of the number of awardees in different ages
+
+(p1 <- acting_award %>% 
+    group_by(age_year) %>%
+    summarise(count = n()) %>%
+    ggplot(aes(x = as.numeric(age_year),
+               y = count))+
+    geom_col(fill = "lightblue", col = "blue")+
+    scale_x_continuous(name="Age of the Actor",
+                       breaks = seq(10,85,5))+
+    scale_y_continuous(name = "No. of awardees")+
+    labs(title = "Age Distribution of Actors")+
+    theme_minimal()+
+  theme(legend.position = "top"))
+```
+
+The above graph shows that maximum number of awards are received in the age group of 30 - 45.
+
+```{r age of awardees2}
+
+(p2 <- acting_award %>% 
+    group_by(gender,age_year) %>%
+    summarise(count = n()) %>%
+    ggplot(aes(x = as.numeric(age_year), 
+               y = count, 
+               fill = gender), 
+               col = "black")+
+    geom_col()+
+    scale_x_continuous(name="Age of the Actor",
+                       breaks = seq(10,85,5))+
+    scale_y_continuous(name = "No. of awardees")+
+    labs(title = "Age Distribution of Actors - Female and Male")+
+    theme_minimal()+
+    facet_wrap(~gender, nrow = 2, ncol = 1 )+
+  theme(legend.position = "top"))
+```
+
+On looking at the age distribution for each gender, it is seen that the females get the maximum awards in the age group of 30 - 35, while the males in 35 - 45.
+
+In order to explore how the typical age of Acting award winners has changed over time, we create a linear model with age as the explanatory variable and the number of awardees in the age as the dependent variable. We do this regression for each gender too.
+ 
+```{r regression models}
+  
+age_gender_award <- acting_award %>% 
+    group_by(gender,age_year) %>%
+    summarise(count = n())
+  
+# Linear model for female and male combined  
+lmod <-  lm(as.numeric(age_year)~as.numeric(year_of_award), 
+            data = acting_award)
+
+summary(lmod)
+
+# Linear model for female 
+lmod_f <-  lm(as.numeric(age_year)~as.numeric(year_of_award), 
+            data = acting_award[acting_award$gender == "Female",])
+
+summary(lmod_f)
+
+# Linear model for male   
+lmod_m <-  lm(as.numeric(age_year)~as.numeric(year_of_award), 
+            data = acting_award[acting_award$gender == "Male",])
+
+summary(lmod_m)
+
+# To see the effect of age over time visually
+(p3 <- acting_award %>% 
+  ggplot(aes(x = as.numeric(year_of_award), 
+             y = as.numeric(age_year), colour = as.factor(gender)))+
+  geom_point()+
+  stat_smooth(method = "lm", col = "green")+
+  labs(title = "Regression", colour = "Gender")+ 
+  scale_x_continuous(name = "Year of the award")+
+  scale_y_continuous(name = "Age of the Actor")+
+  theme(legend.position = "top"))
+```
+
+From above graph, there appears to be an increase of the age of the awardees as the times passes by. However, when we look at the correlation between the two variables, it is only `r cor(x = as.numeric(acting_award$year_of_award),
+    y = as.numeric(acting_award$age_year))`. Thus the dependence is not significant.
+
+```{r regression display gender}
+# To see the effect of age over time visually for each gender
+p3+
+  labs(title = "Regression for Female and Male", colour = "Gender")+
+  facet_wrap(.~gender, nrow = 2)
+```
+
+From the above grapgh, there appears to be an increase of the age of the awardees over time. However, when we look at the correlation between the two variables, it is only `r cor(x = as.numeric(acting_award$year_of_award[acting_award$gender == "F"]), y = as.numeric(acting_award$age_year[acting_award$gender == "F"]))` for females and `r cor(x = as.numeric(acting_award$year_of_award[acting_award$gender == "M"]), y = as.numeric(acting_award$age_year[acting_award$gender == "M"]))` for males. Thus the depandence is not significant in either gender.
+
+#### Bootstrapping
+
+**Objective 5:** To construct an approximate **95% confidence interval** for percent of **"Big 5 Award"** award winners who are not white using **bootstrap** approach and to make a plot illustrating the findings.
+
+We first calculate the normal class intervals. We start with finding out the proportion of
+
+```{r normal CI}
+# The data for the purpaose is
+data <-  oscar$race_ethnicity
+
+# To calculate the proportion of non-white award winners
+(pnw_oscar <- sum(data != "White")/length(data))
+
+# To compile the 95% confidence interval
+(alpha <-  0.05)
+
+# Calculate the critical z-score
+(z <-  qnorm(1-alpha/2))
+
+# The CIs for the proportin are given by 
+(ci_oscar <- pnw_oscar + c(-1,1)*z*sqrt(pnw_oscar*(1-pnw_oscar)/length(data)))
+
+# The CIs for the percent are given by 
+(pnw_oscar_percent <- pnw_oscar*100)
+(ci_oscar_percent <-  ci_oscar*100)
+
+```
+
+Let us now use the `boot` package to calculate the CIs based on the **bootstrap** approach. 
+
+The function `boot()` in the `boot` package does the bootstrap for many situations. It requires three arguments:
+
+1. The data from the original data (a data frame or a matrix or an array)
+2. A function to compute the statistics from the data where the first argument is the data and the second argument is the indices of the observations in the bootstrap sample
+3. The number of bootstrap replicates.
+
+
+```{r boot CI}
+
+# To calculate the proportion of non-white award winners in the given data
+(pnw_oscar <- sum(data != "White")/length(data))
+
+# Let us fix the sample selection for the sake of reproducibility
+set.seed(555)
+
+# Create a function to compute the statistic
+pnw = function(x, indices) {
+  prop <- return( sum(x[indices] != "White")/length(x[indices]))
+}
+
+# Bootstrap realizations
+pnw.boot = boot(data, pnw, 10000)
+
+# The bootstarap confidence intervals
+(ci.boot <- boot.ci(pnw.boot))
+
+(ll.normal.boot <- ci.boot$normal[2])
+(ul.normal.boot <- ci.boot$normal[3])
+
+```
+
+While the `pnw()` is a function defined for calculating the different statistics required for executing the bootstrap, pnw(data,1:length(data)) computes the mean of the given data
+The object pnw.boot is a list with many elements. One is `pnw.boot$data`, which stores the original data. Another element is `pnw.boot$t0`, which is the sample proportion of the original data. The third element of interest is `pnw.boot$t`, which is the collection of bootstrap statistics that can be used as above. However, the built-in function `boot.ci()` has been used to calculate bootstrap confidence intervals using multiple methods namely normal, basic, percentile and BCa methods.  The normal method uses critical **z score** for calculation of the error term. While the **Basic method** uses the estimated standard error, the **Percentile method** uses percentiles.  **BCa or Bias Corrected accelerated** method also uses percentiles, but adjusted to account for bias and skewness.
+
+Based on the `pnw.boot$t` the CIs can be constructed for each bootstrap realization.
+
+The normality of the proportions generated during the bootstrap realizations can be checked as follows:
+```{r normality}
+hist(pnw.boot$t, main = "Histogram of bootstrap proportions", xlab = "Proportions", ylab = "Count", col = "lightblue")
+
+qqplot(x = pnw.boot$t, y= rnorm(10000, mean(pnw.boot$t), sd(pnw.boot$t)),main = "Q - Q Plot", xlab = "Bootstrap Quantiles", ylab = "Normal Quantiles", col = "red")
+```
+
+The above plots show that the proportions from the bootstrap do follow the normal distribution.
+
+Let us now examine the confidence interval we generated through the bootstrap approach actually contains the original proportion approximately 95% of the times. For the purpose of this illustration, we propose to demonstrate with the 20 and 500 observations. The result holds good for all the four methods namely, normal, Basic, Percentile and the BCa and for any numer of observations.
+```{r bootstrap illustration}
+# The sample proportion of the original data from bootstrapping
+pnw.boot$t0
+
+# To see the proportions calculated in each bootstrap sample
+head(pnw.boot$t)
+dim(pnw.boot$t)
+
+# Function to calculate the confidence limits for each sample proportion
+ci <- function(x) {
+  cil <-  x - z*sqrt(x*(1-x)/length(data))
+  ciu <-  x + z*sqrt(x*(1-x)/length(data))
+  df <- data.frame(p = x, cil=cil, ciu=ciu )
+  return(df)
+}
+
+df <- ci(pnw.boot$t)
+
+# To see the structure of the df
+str(df)
+
+# To see a few rows of df
+head(df)
+
+ggplot(df[1:20,], aes(x =1:20,y = p[1:20]))+ 
+  geom_point()+
+  geom_hline(yintercept = c(ll.normal.boot, ul.normal.boot), colour = "green")+  
+  geom_hline(yintercept = pnw_oscar, colour = "brown", size = 2)+
+  geom_errorbar(aes(ymin = cil, 
+                    ymax = ciu,
+                    colour = ciu < pnw_oscar))+
+  labs(title = "Bootstrap CIs for 20 observations")+ 
+  scale_x_continuous(name = "Observations")+
+  scale_y_continuous(name = "Proportions")+
+  theme(legend.position = "")
+```
+
+A 95% confidence interval informs that if samples are repeated several times and the confidence intervals are constructed, about 95% of such intervals will contain the population parameter, in this case - proportion and the remaining about 5% intervals may not have the parameter. This is evidenced from the above graph. Out of 20 confidence intervals 19 (95%) contain the original proportion, whereas only one (5%) confidence interval does not have the original proportion.  
+
+```{r}
+# For illustration let us take the first 500 proportions and their CIs and plot the confidence limits
+ggplot(df[1:500,], aes(x =1:500,y = p[1:500]))+ 
+  geom_point()+
+  geom_hline(yintercept = c(ll.normal.boot, ul.normal.boot), colour = "green")+  
+  geom_hline(yintercept = pnw_oscar, colour = "brown", size = 2)+
+  geom_errorbar(aes(ymin = cil, 
+                    ymax = ciu,
+                    colour = ciu < pnw_oscar))+
+  labs(title = "Bootstrap CIs for 500 observations")+ 
+  scale_x_continuous(name = "Observations")+
+  scale_y_continuous(name = "Proportions")+
+  theme(legend.position = "")
+
+```
+
+Even if we take 500 confidence intervals, we get about `r sum(df$ciu[1:500]>pnw_oscar)` (about 95%) intervals containing the original proportion, while the remaining `r sum(df$ciu[1:500]<pnw_oscar)` (about 5%) do not contain the original proportion.
+
+### Conclusions:
+
+On analyzing the `Oscars-demographics-DFE` data, the following conclusions are arrived: 
+
+1. The movie **`r movie_count[1, 1]`** won the most unique “Big 5 awards”.
+
+2. **`r best_actress_first_name[1,1]`**  and **`r best_actress_first_name[2,1]`** are the most common first names among all the actresses who had won the Best Actress award
+
+3. **New York** is the US State that has produced the most Oscar winners for the awards in the "Oscars-demographics-DFE.csv" dataset.
+
+4. The data set has given very little evidence to say that typical age of acting award winners has changed over time. The same is the case even for the two genders, when analysed separately.
+
+5. The approximate 95% confidence interval for percent of “Big 5 Award” award winners who are not white using bootstrap approach is :
+
++ Normal method: **(r `ci.boot$normal[2]`, `r ci.boot$normal[3]`)**
+
++ Basic Method: **(`r ci.boot$basic[1,4]`, `r ci.boot$basic[1,5]`)**
+
++ Percentile Method: **(`r ci.boot$percent[1,4]`, `r ci.boot$percent[1,5]`)**
+
++ BCa Method: **(`r ci.boot$bca[1,4]`, `r ci.boot$bca[1,5]`)**
+
+It is expected that the original proportion **`r pnw_oscar`** will lie within the confidence interval 95% of the times.
+
+### Session Info
+
+```{r}
+sessionInfo()
+```
+
+### References
+
+1. R for data Science by Garrett Grolemund and 
+Hadley Wickham [https://r4ds.had.co.nz/]
+
+2. Hands-On Programming with R by Garrett Grolemund [https://rstudio-education.github.io/hopr/]
+
+3. Introduction to Data Science - Data Analysis and Prediction Algorithms with R by Prof. Rafael A. Irizarry [https://rafalab.github.io/dsbook/]
+
+4. Bootstrap in R by Łukasz Deryło [https://www.datacamp.com/community/tutorials/bootstrap-r]
+
+5. Bootstrap Confidence Intervals by Thomas J. DiCiccio and Bradley Efron [https://projecteuclid.org/download/pdf_1/euclid.ss/1032280214]
+
+6. R Bootstrap Examples by Bret Larget [http://pages.stat.wisc.edu/~larget/stat302/chap3.pdf]
+
+7. Understanding Bootstrap Confidence Interval Output from the R boot Package by Jeremy Albright [https://blog.methodsconsultants.com/posts/understanding-bootstrap-confidence-interval-output-from-the-r-boot-package/]
+
+

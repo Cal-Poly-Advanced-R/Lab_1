@@ -1,0 +1,113 @@
+---
+title: "STAT 431 - Lab 1: Part 1: Checking Normality"
+author: "T Baskaran"
+date: "5/5/2020"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Objective: 
+
+To write a function to create a Q-Q Plot to check normality of a given numeric vector
+
+### Name of the function:
+
+The function has been named as `draw_qqplot()`.
+  
+### Description
+
+The function `draw_qqplot` draws a Q - Q Plot taking a numeric vector `x` as its input. 
+
+### Useage
+
+`draw_qqplot(data, xlab = "Theoryical quantiles", ylab = "Data quantiles", main = "Q - Q Plot", ...)`
+
+### Arguments
+
+**data:** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; A numeric vector with more than one element, for which we need to test the normality
+
+**xlab:** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; x-axis lablel with the default value “Normal quantiles”
+
+**ylab:** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; y-axis lablel with the default value “Data quantiles”
+
+**main:** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Main head of the plot with default “Q - Q Plot”
+
+**… :**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Other graphical parameters, if any, as arguments to the function
+
+### Details
+
+The vector `data` can be created or be a variable in a data frame. Given the vector `data`, the function calculates the quantiles for `data` as `Data quantiles`, generates a new vector `normal` of length equal to that of `data` with observations from Normal Distribution having mean and sd of `data` and then calculates the quantiles of `normal` as `Normal quantiles`. The function further plots a scatter plot taking `Normal quantiles` in x-axis and `Data quantiles` in y-axis. The function also draws a  red line with intercept 0 and slope 1, If the points in the scatterplot fall on this straight line, then the two sets of data are from the same distribution, in this case the Normal Distribution. If not the numeric vector `data` does have a different distribution from Normal. The function provides for x and y axes labels along with main heading for the plot with appropriate defaults.
+
+### The function
+
+```{r}
+draw_qqplot <- function(data, 
+                        xlab = "Normal quantiles", 
+                        ylab = "Data quantiles",
+                        main = "Q - Q Plot")  { 
+ 
+   # Calculate the data quantiles
+    data_quantile <- quantile(data, probs = seq(0, 1, 1/1000))
+    
+  # Generate a vector from normal distribution
+    y <- rnorm(length(data), mean(data), sd(data))
+    
+  # Calculate normal quantiles  
+    norm_quantile <- quantile(y, probs = seq(0, 1, 1/1000))
+    
+  # Draw a scater plot of the two quantiles
+    plot(data_quantile, norm_quantile, xlab = "Data quantiles", ylab = "Normal quantiles", main = "Q - Q Plot")
+  # Draw a straight line with intercept = 0 and slope = 1
+    abline(0,1, col = "red")
+  }
+```
+
+#### Examples
+
+```{r}
+# For a general numeric vector
+draw_qqplot(data = sample(seq(0.0001,1,0.0001), 100))
+
+# For a numeric variable from the iris data set
+draw_qqplot(data = iris$Sepal.Length)
+
+# For a vector of observations from the exponential distribution
+draw_qqplot(data = rexp(100))
+```
+
+### See also
+
+Instead of the above, the following `cknormal()`function will also tell if the observations of a numeric vector `x`are from normal population or not.
+
+```{r}
+cknormal <- function(x){
+# Arrange the obsevations of x in the decreasing order
+  x <- sort(x, decreasing = TRUE)
+# Generate a vector `y`of observations from Normal Distribution
+  y <- rnorm(length(x), mean(x), sd(x))
+# Arrange the obsevations of x in the decreasing order
+  y <- sort(y, decreasing = TRUE)
+# Plot `x` and `y` as a scatterplot and draw a straight line with intercept 0 and slope 1
+  plot(x,y)
+  abline(0,1, col = "red")
+}
+
+# Examples
+cknormal(x = sample(seq(0.0001,1,0.0001), 100))
+cknormal(x = iris$Sepal.Length)
+cknormal(x = rexp(100))
+```
+
+### Conclusion
+
+If the resultant vector of points lie on the line, the vector `x`follows normal distribution.
+
+### References
+
+1. Hands-On Programming with R by Garrett Grolemund [https://rstudio-education.github.io/hopr/]
+
+2. Introduction to Data Science - Data Analysis and Prediction Algorithms with R by Prof. Rafael A. Irizarry [https://rafalab.github.io/dsbook/]
