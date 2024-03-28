@@ -1,17 +1,19 @@
 # Lab 1: Review of Statistical Computing with R
 
-## Part One: Checking Normality (150 pts)
+Each portion of the lab (part 1, part 2) should be written in a *separate* Quarto file. 
 
-**Create an R Markdown file for Part One.**
+## Part One: Checking Normality
 
-Make sure your final file is carefully formatted, so that each analysis is clear and concise.  Be sure your knitted .html file shows all your source code, including your function definitions.  
-(That is, for purposes of this exam, do not write your functions in a separate source file.)
+**Create a Quarto file for Part One.**
+
+- Make sure your final file is carefully formatted, so that each analysis is clear and concise.
+- Be sure your knitted .html file shows **all** your source code, including your function definitions.  
 
 ### Background: Q-Q Plots
 
-A Q-Q (Quantile-Quantile) Plot is a way of checking if two collections of observations come from the same distribution.
+A Q-Q (Quantile-Quantile) plot is a way of checking if two collections of observations come from the same distribution. 
 
-The steps are as follows:
+To create a Q-Q plot, you need to carry out the following steps:
 
 1. Take two vectors of the same length, `x` and `y`.
 
@@ -21,31 +23,25 @@ The steps are as follows:
 
 4. Make a scatterplot of the ordered pairs.  
 
-
 If the points in the scatterplot fall on a straight line, with intercept 0 and slope 1, 
 this suggests that `x` and `y` are sampled from the same distribution.
 
+### Write a function
 
-In this section, you will use a **Q-Q Plot** to check if a vector of values `x` comes from a Normal distribution.  
-The approach is to randomly generate a new vector `y` from a Normal distribution with the same mean and standard deviation as `x`, 
-then to create a Q-Q plot of `x` and `y`.
-*(Note: A typical Normal Q-Q plot uses theoretical quantiles instead of randomly generated values.  We're taking a bit of a shortcut
-in this assignment.)*
+Write a function that takes a **numeric vector** as an input and returns (not just prints!) a **Q-Q Plot** comparing your input to Normally distributed values. 
 
+Your approach should be to:
 
-### Write a function  (100 points)
+- randomly generate a new vector `y` from a Normal distribution with the same mean and standard deviation as the input vector
+- create a Q-Q plot of `x` and `y`
 
-Your final function should take as input a **numeric vector**.
+Your function may **not** use any existing functions specific to Q-Q plots; including, but not limited to, `qqplot()`, `geom_qq`, or `stat_qq`. 
 
-It should return (not just print!) a **Q-Q Plot** comparing your input to Normally distributed values.
+Once you have written your function, you should demonstrate that your function works by running it on the `speed` column of the `cars` dataset (from base-R). 
 
-You may **not** use any existing functions specific to Q-Q plots; including (but not limited to) `qqplot()`, `geom_qq`, or `stat_qq`. 
+### Code design and style
 
-Demonstrate that your function works by running it on either real data of your choice, or on a non-Normal vector that you create.
-
-### Code design and style (50 points)
-
-A third of your grade on this section is for beautiful, well-formatted, and well-designed code.
+A major portion of programming is learning to write beautiful, well-formatted, and well-designed code.
 
 Some (non-exhaustive!) tips:
 
@@ -55,8 +51,7 @@ Some (non-exhaustive!) tips:
 
 * Be deliberate about your objects and object types, and how you choose to store information.
 
-* Write efficient code: do not duplicate analyses unnecessarily, use loops/map/apply when it is not needed, 
-or create new objects you don't need.
+* Write efficient code: do not duplicate analyses unnecessarily, use loops / map / apply when it is not needed, or create new objects you don't need.
 
 * Write well-designed code: your main function might rely on helpful smaller functions, 
 and all functions should take reasonable inputs and give reasonable outputs.
@@ -64,48 +59,37 @@ and all functions should take reasonable inputs and give reasonable outputs.
 * Your code should have at least a few comments, explaining what your functions do.
 
 
-## Part Two: Data Analysis (150 points)
+## Part Two: Data Analysis
 
-**Create a new R Markdown file for Part Two.**
+**Create a new Quarto file for Part Two.**
 
-Make sure your final file is carefully formatted, so that each analysis is clear and concise.  
-Be sure your knitted .html file shows all your source code.
-
+- Make sure your final file is carefully formatted, so that each analysis is clear and concise.  
+- Be sure your knitted .html file shows all your source code.
 
 ### The Data
 
-Use the dataset `Oscars-demographics-DFE.csv` in this repository.
+Use the dataset `oscars-demographics-DFE.csv` in this repository.
 
-To accomplish the tasks in this exam, you will need to do appropriate cleaning, adjusting, and reorganizing of the data.
+To accomplish the tasks in this section you will need to do appropriate cleaning, adjusting, and reorganizing of the data.
 
-In what follows, the phrase "Big 5 Awards" refers to the five individual Academy Awards covered in this dataset:  
-Best Director, Best Actor, Best Actress, Best Supporting Actor, and Best Supporting Actress.
+In what follows, the phrase "Big 5 Awards" refers to the five individual Academy Awards covered in this dataset: Best Director, Best Actor, Best Actress, Best Supporting Actor, and Best Supporting Actress.
 
-### Warm-ups (10 points each)
+### Warm-ups
 
 1. Which movie(s) won the most unique "Big 5" awards?
 
-2. Of all actresses who have won the Best Actress award, what are is the most common first name?  
+2. Of all actresses who have won the Best Actress award, what is(are) the most common first name(s)?  
 
 3. What US State, or non-US country, has produced the most Oscar winners (for the awards in this dataset)?
 
-### Age and Gender (60 points)
+### Age and Gender
 
-The information in this dataset includes two awards given only to women (Best Actress, Best Supporting Actress) 
-and two awards given only to men (Best Actor, Best Supporting Actor).  
+The information in this dataset includes two awards given only to women (Best Actress, Best Supporting Actress) and two awards given only to men (Best Actor, Best Supporting Actor).  
 
-Create a linear model that explores how the typical age of acting award winners has changed over time, 
-and how that effect is different for the two genders of awards.
+Create a linear model that explores how the typical age of acting award winners has changed over time, and how this relationship differs for the two genders of awards.
 
-*(Note:  You will absolutely need to do some careful manipulation of the date information in this dataset, before you create your model.
-You may assume all Oscar awards take place on Feb 1 of the year they are awarded.)*
+*Note: You will absolutely need to do some careful manipulation of the date information in this dataset, before you create your model. You may assume all Oscar awards take place on February 1st of the year they are awarded.*
 
-Print out the results of your model, and briefly discuss the interpretations and conclusions.
+Print out the results of your model in a tidy and clean format -- you may find the **broom** package helpful. 
 
-
-### Bootstrapping (60 points)
-
-Use a bootstrap approach to answer the following question:  
-What is an approximate 95% confidence interval for percent of "Big 5 Award" award winners who are not white?
-
-In addition to the confidence interval, make a plot that illustrates your findings.
+Briefly discuss the interpretations of your regression and what it leads you to conclude about this relationship.
